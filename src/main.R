@@ -1,12 +1,12 @@
 library(moments);library(labstatR);library(gstat);library(sp);library(rgdal)
 
-dataPath <- "data/medie.csv"
-coordPath <- "data/R_semivariogram.csv"
+dataPath <- "/home/sidereus/documents/projects/kriging/data/medie.csv"
+coordPath <- "/home/sidereus/documents/projects/kriging/data/R_semivariogram.csv"
 
-source(functions.R)
+source("src/functions.R")
 
 data <- inputDataProcessing(dataPath)
-coordinates <- inputCoordinatesProcessing(coordPath)
+coordinate <- inputCoordinatesProcessing(coordPath)
 
 totaldf <- list()
 totalcoord <- list()
@@ -24,8 +24,7 @@ for(i in 1:length(data[1,])){
     df_winter <- merge(coordinate,tmp,0)
     coordinates(df_winter)<-~lat+long
 
-    proj4string(df_winter) <- CRS("+proj=longlat +datum=WGS84")
-    res <- spTransform(df_winter, CRS("+proj=utm +zone=32N ellps=WGS84"))
+    res <- latlong2utm32n(df_winter)
 
     res_chop <- res
     chop <- 0

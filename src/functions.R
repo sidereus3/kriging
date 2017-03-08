@@ -1,5 +1,5 @@
 inputDataProcessing <- function(path) {
-    inputData<-read.csv(paste(inputDataPath,sep=""), header=TRUE,sep=",",stringsAsFactors=FALSE)
+    inputData<-read.csv(paste(path,sep=""), header=TRUE,sep=",",stringsAsFactors=FALSE)
     colnames(inputData)<-gsub("X","",colnames(inputData))
     inputData$ID <- NULL
     inputData$posix <- as.POSIXct(strptime(inputData[,1],"%Y-%m-%d %H:%M"), origin="1970-01-01", tz='GMT');
@@ -12,7 +12,7 @@ inputDataProcessing <- function(path) {
 }
 
 inputCoordinatesProcessing <- function(path) {
-    inputCoordinates<-read.table(paste(coordPath,sep=""),header=TRUE,sep=",",row.names=3,
+    inputCoordinates<-read.table(paste(path,sep=""),header=TRUE,sep=",",row.names=3,
                            na.string=NA,stringsAsFactors=FALSE)
     inputCoordinates <- inputCoordinates[order(row.names(inputCoordinates)),]
     inputCoordinates$value <- NULL
@@ -51,18 +51,22 @@ computeCutoff <- function() {
 omnidirectSperimentalVariogram <- function(date, type) {
 
     prec.vgm = variogram(media ~ 1, df_media, cutoff=computed_cutoff, width=computed_width)
-
     pdf(paste("plot/prec_VarAnalisys_",type,"_",date,".pdf",sep=""))
     print(plot(prec.vgm, main=paste("Semivariogramma sperimentale - ",date," - ", type), xlab="distanza (m)", ylab="semivariogramma"))
     dev.off()
 
-    return()
+}
+
+latlong2utm32n <- function(inputDataFrame) {
+
+    proj4string(inputDataFrame) <- CRS("+proj=longlat +datum=WGS84")
+    res <- spTransform(inputDataFrame, CRS("+proj=utm +zone=32N ellps=WGS84"))
+
+    return(res)
 
 }
 
 variogramFitting <- function(singleVariogram, date, type) {
-
-
 
     for (index in 1:length(singleVariogram)){
 
