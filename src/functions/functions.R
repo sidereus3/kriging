@@ -140,7 +140,7 @@ variogramFitting <- function(singleVariogram, lineIndex, type, dataPath, plotPat
         prec.vgm = variogram(media ~ 1, df_media, cutoff=computed_cutoff, width=computed_width)
         prec.fit = fit.variogram(prec.vgm, model = vgm(sill,variogramType,range,nugget),fit.kappa=T)
         pdf(paste(plotPath,"precFit_OMNI_",variogramType,"_",lineIndex,"_",type,".pdf",sep=""))
-        print(plot(prec.vgm,prec.fit,xlab="Distance",ylab="Semivariance",main=paste(variogramType,"Variogram - ",date," - ",type)))
+        print(plot(prec.vgm,prec.fit,xlab="Distance",ylab="Semivariance",main=paste(variogramType,"Variogram - ",date," - ",type), sub=paste("sill ", prec.fit$psill[2]," - range ", prec.fit$range[2])))
         dev.off()
 
     }
