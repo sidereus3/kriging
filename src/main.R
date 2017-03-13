@@ -10,7 +10,7 @@ codePath <- "/home/sidereus/vcs/git/github_personal/kriging/src/"
 coordPath <- "/home/sidereus/documents/projects/kriging/data/coords/R_semivariogram.csv"
 plotPath <- "/home/sidereus/documents/projects/kriging/plot/"
 
-file.sources <- list.files(paste(codePath,"functions/",sep=""),pattern="*.R",full.names=T)
+file.sources <- list.files(paste(codePath,"functions",sep=""),pattern="*.R",full.names=T)
 sapply(file.sources,source,.GlobalEnv)
 
 files <- list.files(paste(dataPath), pattern="*.csv", full.names=T)
