@@ -124,7 +124,42 @@ indexToMonth <- function(index) {
     return(month)
 }
 
-variogramFitting <- function(singleVariogram, lineIndex, type, dataPath, plotPath) {
+computeCrossValidation <- function(krigingType, variogramType, type, prec.fit, index, date, plotPath, nstations) {
+
+    for(i in 1:length(krigingType)) {
+        kriging <- krigingType[i]
+        if (kriging=="Ordinary") {
+            prec.cv <- krige.cv(media ~ 1, loc=df_media, model=prec.fit)
+            ## prec.kriged <- krige(media ~ 1, loc=df_media,__missing_xyz__,model=prec.fit)
+            if (nstations > 0) {
+                ## prec.kriged_loc <- krige(media ~ 1, loc=df_media,__missing_xyz__,model=prec.fit, nmax=10)
+            }
+        } else if (kriging=="KED") {
+            prec.cv <- krige.cv(media ~ quota, loc=df_media, model=prec.fit)
+            ## prec.kriged <- krige(media ~ elev, loc=df_media,__missing_xyz__,model=prec.fit)
+            if (nstations > 0) {
+                ## prec.kriged_loc <- krige(media ~ elev, loc=df_media,__missing_xyz__,model=prec.fit, nmax=10)
+            }
+        }
+
+        pdf(paste(plotPath,"observed_predict_",type,"_",index,"_",variogramType,"_krig_", kriging,".pdf",sep=""))
+        plot(prec.cv$observed,prec.cv$var1.pred,main=paste("observed_predict_",type,"_",date,"_",variogramType,"_krig_",kriging,sep=""))
+        abline(0,1)
+        dev.off()
+
+        ## pdf(paste(plotPath,"krig_",kriging,"_variogram_",variogramType,".pdf",sep=""))
+        ## ssplot(prec.kriged,"var1.pred",contour=T,col.regions=rainbow(100,start=.5,end=.75),main="Kringing precipitazione - inverno 2004")
+        ## dev.off()
+        if (nstations > 0) {
+            ## pdf(paste(plotPath,"krig_",kriging,"_variogram_",variogramType,"_localnstat",nstations,".pdf",sep=""))
+            ## ssplot(prec.kriged,"var1.pred",contour=T,col.regions=rainbow(100,start=.5,end=.75),main="Kringing precipitazione - inverno 2004")
+            ## dev.off()
+        }
+    }
+
+}
+
+variogramFitting <- function(singleVariogram, krigingType, lineIndex, type, dataPath, plotPath, nstations) {
 
     date <- indexToMonth(lineIndex)
 
@@ -143,6 +178,7 @@ variogramFitting <- function(singleVariogram, lineIndex, type, dataPath, plotPat
         print(plot(prec.vgm,prec.fit,xlab="Distance",ylab="Semivariance",main=paste(variogramType,"Variogram - ",date," - ",type), sub=paste("sill ", prec.fit$psill[2]," - range ", prec.fit$range[2])))
         dev.off()
 
+        computeCrossValidation(krigingType, variogramType, type, prec.fit, lineIndex, date, plotPath, nstations)
     }
 
 }

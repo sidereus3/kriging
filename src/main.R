@@ -16,6 +16,8 @@ sapply(file.sources,source,.GlobalEnv)
 files <- list.files(paste(dataPath), pattern="*.csv", full.names=T)
 fileNames <- list.files(paste(dataPath), pattern="*.csv")
 
+nstations <- 10 # for local kriging
+
 for (nFile in 1:length(files)) {
 
     dataFile <- files[nFile]
@@ -26,7 +28,7 @@ for (nFile in 1:length(files)) {
 
     list[totaldf,totalcoord] <- dataCoordProcessing(data, coordinate)
     
-    for (i in 1:12) {
+    for (i in 1:length(data[,1])) {
 
         print(indexToMonth(i))
         df_media <- totaldf[[i]]
@@ -38,7 +40,8 @@ for (nFile in 1:length(files)) {
 
         omnidirectSperimentalVariogram(i, type)
         singleVariogram <- c("Lin","Sph","Exp","Gau")
-        variogramFitting(singleVariogram, i, type, dataPath, plotPath)
+        krigingType <- c("Ordinary", "KED")
+        variogramFitting(singleVariogram, krigingType, i, type, dataPath, plotPath, nstations)
 
     }
 
