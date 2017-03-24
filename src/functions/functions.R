@@ -87,10 +87,10 @@ computeCutoff <- function() {
     
 }
  
-omnidirectSperimentalVariogram <- function(date, type) {
+omnidirectSperimentalVariogram <- function(date, plotPath, type) {
 
     prec.vgm = variogram(media ~ 1, df_media, cutoff=computed_cutoff, width=computed_width)
-    pdf(paste("/home/sidereus/documents/projects/kriging/plot/prec_VarAnalisys_",type,"_",date,".pdf",sep=""))
+    pdf(paste(plotPath,"prec_VarAnalisys_",type,"_",date,".pdf",sep=""))
     print(plot(prec.vgm, main=paste("Semivariogramma sperimentale - ",date," - ", type), xlab="distanza (m)", ylab="semivariogramma"))
     dev.off()
 
@@ -124,7 +124,7 @@ indexToMonth <- function(index) {
     return(month)
 }
 
-computeCrossValidation <- function(krigingType, variogramType, type, prec.fit, index, date, plotPath, nstations) {
+computeCrossValidation <- function(krigingType, variogramType, type, prec.fit, date, plotPath, nstations) {
 
     for(i in 1:length(krigingType)) {
         kriging <- krigingType[i]
@@ -142,7 +142,7 @@ computeCrossValidation <- function(krigingType, variogramType, type, prec.fit, i
             }
         }
 
-        pdf(paste(plotPath,"observed_predict_",type,"_",index,"_",variogramType,"_krig_", kriging,".pdf",sep=""))
+        pdf(paste(plotPath,"observed_predict_",type,"_",date,"_",variogramType,"_krig_", kriging,".pdf",sep=""))
         plot(prec.cv$observed,prec.cv$var1.pred,main=paste("observed_predict_",type,"_",date,"_",variogramType,"_krig_",kriging,sep=""))
         abline(0,1)
         dev.off()
@@ -159,26 +159,37 @@ computeCrossValidation <- function(krigingType, variogramType, type, prec.fit, i
 
 }
 
-variogramFitting <- function(singleVariogram, krigingType, lineIndex, type, dataPath, plotPath, nstations) {
+variogramFitting <- function(singleVariogram, krigingType, monthNum, date, type, dataPath, plotPath, nstations) {
 
-    date <- indexToMonth(lineIndex)
+    monthName <- indexToMonth(monthNum)
 
     for (index in 1:length(singleVariogram)){
 
         variogramType <- as.character(singleVariogram[index])
-        variogramData <- read.csv(paste(dataPath,"variogramData/",type,"_",variogramType,".csv",sep=""),sep=";",header=T,row.names=1, stringsAsFactor=F)
+        variogramData <- read.csv(paste(dataPath,"variogramData/",
+                                        type,"_",
+                                        variogramType,".csv",sep=""),
+                                  sep=";",header=T,row.names=1, stringsAsFactor=F)
 
-        nugget <- variogramData[which(rownames(variogramData) == "TV_nugget:"), lineIndex]
-        sill <- variogramData[which(rownames(variogramData) == "TV_sill:"), lineIndex]
-        range <- variogramData[which(rownames(variogramData) == "TV_range:"), lineIndex]
+        nugget <- variogramData[which(rownames(variogramData) == "TV_nugget:"), monthNum]
+        sill <- variogramData[which(rownames(variogramData) == "TV_sill:"), monthNum]
+        range <- variogramData[which(rownames(variogramData) == "TV_range:"), monthNum]
 
-        prec.vgm = variogram(media ~ 1, df_media, cutoff=computed_cutoff, width=computed_width)
-        prec.fit = fit.variogram(prec.vgm, model = vgm(sill,variogramType,range,nugget),fit.kappa=T)
-        pdf(paste(plotPath,"precFit_OMNI_",variogramType,"_",lineIndex,"_",type,".pdf",sep=""))
-        print(plot(prec.vgm,prec.fit,xlab="Distance",ylab="Semivariance",main=paste(variogramType,"Variogram - ",date," - ",type), sub=paste("sill ", prec.fit$psill[2]," - range ", prec.fit$range[2])))
+        prec.vgm = variogram(media ~ 1, df_media,
+                             cutoff=computed_cutoff,
+                             width=computed_width)
+        prec.fit = fit.variogram(prec.vgm,
+                                 model = vgm(sill,variogramType,range,nugget),
+                                 fit.kappa=T)
+        pdf(paste(plotPath,"precFit_OMNI_",
+                  variogramType,"_",
+                  date,"_",type,".pdf",sep=""))
+        print(plot(prec.vgm,prec.fit,xlab="Distance",ylab="Semivariance",
+                   main=paste(variogramType,"Variogram - ",date," - ",type),
+                   sub=paste("sill ",prec.fit$psill[2]," - range ",prec.fit$range[2])))
         dev.off()
 
-        computeCrossValidation(krigingType, variogramType, type, prec.fit, lineIndex, date, plotPath, nstations)
+        computeCrossValidation(krigingType, variogramType, type, prec.fit, date, plotPath, nstations)
     }
 
 }

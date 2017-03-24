@@ -1,9 +1,18 @@
+#!/usr/bin/env Rscript
+
 library(moments)
 library(labstatR)
 library(gstat)
 library(sp)
 library(rgdal)
 library(tools)
+library(lubridate)
+library(parallel)
+library(foreach)
+library(doParallel)
+
+cl <- makeCluster(detectCores())
+registerDoParallel(cl, cores=detectCores())
 
 dataPath <- "/home/sidereus/documents/projects/kriging/data/"
 codePath <- "/home/sidereus/vcs/git/github_personal/kriging/src/"
@@ -28,9 +37,11 @@ for (nFile in 1:length(files)) {
 
     list[totaldf,totalcoord] <- dataCoordProcessing(data, coordinate)
     
-    for (i in 1:length(data[,1])) {
+    foreach (i=1:length(data[,1]), .inorder=FALSE, .packages=c("gstat","lubridate","tools","rgdal","gstat","sp")) %dopar% {
 
-        print(indexToMonth(i))
+        date <- data[i,1]
+        monthNum <- month(as.POSIXlt(date))
+        print(date)
         df_media <- totaldf[[i]]
         coord <- totalcoord[[i]]
 
@@ -38,10 +49,10 @@ for (nFile in 1:length(files)) {
         computed_cutoff <- computeCutoff()
         computed_width <- computed_cutoff/bins
 
-        omnidirectSperimentalVariogram(i, type)
+        omnidirectSperimentalVariogram(date, plotPath, type)
         singleVariogram <- c("Lin","Sph","Exp","Gau")
         krigingType <- c("Ordinary", "KED")
-        variogramFitting(singleVariogram, krigingType, i, type, dataPath, plotPath, nstations)
+        variogramFitting(singleVariogram, krigingType, monthNum, date, type, dataPath, plotPath, nstations)
 
     }
 
