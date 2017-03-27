@@ -14,10 +14,12 @@ library(doParallel)
 cl <- makeCluster(detectCores())
 registerDoParallel(cl, cores=detectCores())
 
-dataPath <- "/home/sidereus/documents/projects/kriging/data/"
+workdir <- "/home/sidereus/documents/projects/kriging/"
 codePath <- "/home/sidereus/vcs/git/github_personal/kriging/src/"
-coordPath <- "/home/sidereus/documents/projects/kriging/data/coords/R_semivariogram.csv"
-plotPath <- "/home/sidereus/documents/projects/kriging/plot/"
+dataPath <- paste(workdir,"data/",sep="")
+coordPath <- paste(workdir,"data/coords/",sep="")
+plotPath <- paste(workdir,"plot/",sep="")
+outDataPath <- paste(workdir,"outData/",sep="")
 
 file.sources <- list.files(paste(codePath,"functions",sep=""),pattern="*.R",full.names=T)
 sapply(file.sources,source,.GlobalEnv)
@@ -26,6 +28,11 @@ files <- list.files(paste(dataPath), pattern="*.csv", full.names=T)
 fileNames <- list.files(paste(dataPath), pattern="*.csv")
 
 nstations <- 10 # for local kriging
+
+demToGrid <- read.table(paste(coordPath,"DEM.xyz",sep=""),sep=" ")
+colnames(demToGrid) <- c("x","y","quota")
+gridded(demToGrid) <- ~x+y
+proj4string(demToGrid) <- CRS("+init=epsg:32632 +proj=utm +zone=32N ellps=WGS84")
 
 for (nFile in 1:length(files)) {
 
@@ -36,12 +43,23 @@ for (nFile in 1:length(files)) {
     coordinate <- inputCoordinatesProcessing(coordPath)
 
     list[totaldf,totalcoord] <- dataCoordProcessing(data, coordinate)
-    
-    foreach (i=1:length(data[,1]), .inorder=FALSE, .packages=c("gstat","lubridate","tools","rgdal","gstat","sp")) %dopar% {
 
+    oldMonthNum <- 0
+
+    foreach (i=1:length(data[,1]), .inorder=FALSE, .packages=c("gstat","lubridate","tools","rgdal")) %dopar% {
+    #for (i in 1:length(data[,1])) {
         date <- data[i,1]
         monthNum <- month(as.POSIXlt(date))
         print(date)
+
+        ## if (monthNum > oldMonthNum) {
+        ##     head <- colnames(data)
+        ##     write(head, file=paste(outDataPath,"monthNum",sep=""),sep=",")
+        ##     oldMonthNum <- oldMonthNum + 1
+        ## } else {
+        ##     write(val, file=paste(outDataPath,monthNum,".csv"))
+        ## }
+
         df_media <- totaldf[[i]]
         coord <- totalcoord[[i]]
 
@@ -52,7 +70,9 @@ for (nFile in 1:length(files)) {
         omnidirectSperimentalVariogram(date, plotPath, type)
         singleVariogram <- c("Lin","Sph","Exp","Gau")
         krigingType <- c("Ordinary", "KED")
-        variogramFitting(singleVariogram, krigingType, monthNum, date, type, dataPath, plotPath, nstations)
+        variogramFitting(singleVariogram, krigingType,
+                         monthNum, date, type, dataPath,
+                         plotPath, nstations, coord)
 
     }
 

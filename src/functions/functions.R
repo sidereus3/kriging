@@ -12,7 +12,7 @@ inputDataProcessing <- function(path) {
 }
 
 inputCoordinatesProcessing <- function(path) {
-    inputCoordinates<-read.table(paste(path,sep=""),header=TRUE,sep=",",row.names=3,
+    inputCoordinates<-read.table(paste(path,"R_semivariogram.csv",sep=""),header=TRUE,sep=",",row.names=3,
                            na.string=NA,stringsAsFactors=FALSE)
     inputCoordinates <- inputCoordinates[order(row.names(inputCoordinates)),]
     inputCoordinates$value <- NULL
@@ -35,7 +35,7 @@ dataCoordProcessing <- function(data, coordinate) {
         colnames(tmp) <- c("media")
 
         df_winter <- merge(coordinate,tmp,0)
-        coordinates(df_winter)<-~lat+long
+        coordinates(df_winter)<-~long+lat
 
         res <- latlong2utm32n(df_winter)
 
@@ -52,7 +52,8 @@ dataCoordProcessing <- function(data, coordinate) {
 
         df[[i]] <- res_chop
         coord[[i]] <- data.frame(x=coordinates(res_chop)[,1],
-                                 y=coordinates(res_chop)[,2])
+                                 y=coordinates(res_chop)[,2],
+                                 z=res_chop$quota)
     }
 
     return(list(df = df, coord = coord))
@@ -98,8 +99,8 @@ omnidirectSperimentalVariogram <- function(date, plotPath, type) {
 
 latlong2utm32n <- function(inputDataFrame) {
 
-    proj4string(inputDataFrame) <- CRS("+proj=longlat +datum=WGS84")
-    res <- spTransform(inputDataFrame, CRS("+proj=utm +zone=32N ellps=WGS84"))
+    proj4string(inputDataFrame) <- CRS("+init=epsg:4326")
+    res <- spTransform(inputDataFrame, CRS("+init=epsg:32632 +proj=utm +zone=32N ellps=WGS84"))
 
     return(res)
 
@@ -124,19 +125,19 @@ indexToMonth <- function(index) {
     return(month)
 }
 
-computeCrossValidation <- function(krigingType, variogramType, type, prec.fit, date, plotPath, nstations) {
+computeCrossValidation <- function(krigingType, variogramType, type, prec.fit, date, plotPath, nstations, coord) {
 
     for(i in 1:length(krigingType)) {
         kriging <- krigingType[i]
         if (kriging=="Ordinary") {
             prec.cv <- krige.cv(media ~ 1, loc=df_media, model=prec.fit)
-            ## prec.kriged <- krige(media ~ 1, loc=df_media,__missing_xyz__,model=prec.fit)
+            prec.kriged <- krige(media ~ 1, loc=df_media, demToGrid,model=prec.fit)
             if (nstations > 0) {
                 ## prec.kriged_loc <- krige(media ~ 1, loc=df_media,__missing_xyz__,model=prec.fit, nmax=10)
             }
         } else if (kriging=="KED") {
             prec.cv <- krige.cv(media ~ quota, loc=df_media, model=prec.fit)
-            ## prec.kriged <- krige(media ~ elev, loc=df_media,__missing_xyz__,model=prec.fit)
+            prec.kriged <- krige(media ~ quota, loc=df_media, demToGrid,model=prec.fit)
             if (nstations > 0) {
                 ## prec.kriged_loc <- krige(media ~ elev, loc=df_media,__missing_xyz__,model=prec.fit, nmax=10)
             }
@@ -147,9 +148,9 @@ computeCrossValidation <- function(krigingType, variogramType, type, prec.fit, d
         abline(0,1)
         dev.off()
 
-        ## pdf(paste(plotPath,"krig_",kriging,"_variogram_",variogramType,".pdf",sep=""))
-        ## ssplot(prec.kriged,"var1.pred",contour=T,col.regions=rainbow(100,start=.5,end=.75),main="Kringing precipitazione - inverno 2004")
-        ## dev.off()
+        #pdf(paste(plotPath,"krig_",kriging,"_variogram_",variogramType,".pdf",sep=""))
+        #spplot(prec.kriged,"var1.pred",contour=T,col.regions=rainbow(100,start=.5,end=.75),main="Kringing precipitazione - inverno 2004")
+        #dev.off()
         if (nstations > 0) {
             ## pdf(paste(plotPath,"krig_",kriging,"_variogram_",variogramType,"_localnstat",nstations,".pdf",sep=""))
             ## ssplot(prec.kriged,"var1.pred",contour=T,col.regions=rainbow(100,start=.5,end=.75),main="Kringing precipitazione - inverno 2004")
@@ -159,7 +160,7 @@ computeCrossValidation <- function(krigingType, variogramType, type, prec.fit, d
 
 }
 
-variogramFitting <- function(singleVariogram, krigingType, monthNum, date, type, dataPath, plotPath, nstations) {
+variogramFitting <- function(singleVariogram, krigingType, monthNum, date, type, dataPath, plotPath, nstations, coord) {
 
     monthName <- indexToMonth(monthNum)
 
@@ -189,7 +190,7 @@ variogramFitting <- function(singleVariogram, krigingType, monthNum, date, type,
                    sub=paste("sill ",prec.fit$psill[2]," - range ",prec.fit$range[2])))
         dev.off()
 
-        computeCrossValidation(krigingType, variogramType, type, prec.fit, date, plotPath, nstations)
+        computeCrossValidation(krigingType, variogramType, type, prec.fit, date, plotPath, nstations, coord)
     }
 
 }
