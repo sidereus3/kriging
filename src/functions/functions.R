@@ -1,22 +1,31 @@
+# this function preprocesses data: removes column ID, clean up column names
+# adds posix column for date and makes it row names
+# for whatever reason delets station 90290
 inputDataProcessing <- function(path) {
     inputData<-read.csv(paste(path,sep=""), header=TRUE,sep=",",stringsAsFactors=FALSE)
     colnames(inputData)<-gsub("X","",colnames(inputData))
+    # removes column ID
     inputData$ID <- NULL
+    # adds posix column to manage dates and replace dataora column
     inputData$posix <- as.POSIXct(strptime(inputData[,1],"%Y-%m-%d %H:%M"), origin="1970-01-01", tz='GMT');
     inputData$dataora <- inputData$posix
     inputData$posix <- NULL
 
+    # deletes station 90290 because all 0
     for (i in 1:length(colnames(inputData))) {
         if (colnames(inputData)[i] == 90290)
             index <- i
     }
 
+    # column dataora becomes row names
     row.names(inputData) <- inputData$dataora
     inputData <- inputData[,-index]
 
     return(inputData)
 }
 
+# reads meteo stations coordinates and elevation
+# and orders them by ascending id (data columns have same order)
 inputCoordinatesProcessing <- function(path) {
     inputCoordinates<-read.table(paste(path,"R_semivariogram.csv",sep=""),header=TRUE,sep=",",row.names=3,
                            na.string=NA,stringsAsFactors=FALSE)
@@ -25,29 +34,39 @@ inputCoordinatesProcessing <- function(path) {
     return(inputCoordinates)
 }
 
+# this functions slices data per date and selects only valid values
 dataCoordProcessing <- function(data, coordinate) {
 
     df <- rep(list(),length(data[1,]))
     coord <- rep(list(),length(data[1,]))
 
+    # loops over columns
     for(i in 1:length(data[1,])){
+
+        # creates a tmp column
         tmp <- data.frame(array(0, dim=c(length(data[i,])-1,1)))
 
+        # copies data per row (date) over tmp
         for(index in 1:length(data[1,])-1){
             tmp[index,1] <- as.numeric(data[i,index+1])
         }
 
+        # row names are now meteo stations ID
         row.names(tmp) <- colnames(data[,-1])
+        # and calls "media" the only column
         colnames(tmp) <- c("media")
 
+        # merges the two data frames
         df_winter <- merge(coordinate,tmp,0)
         coordinates(df_winter)<-~long+lat
 
+        # converts latlong to utm 32N
         res <- latlong2utm32n(df_winter)
 
         res_chop <- res
         chop <- 0
 
+        # cuts off stations with NA values
         for (row in 1:length(res[,1])) {
             if (is.na(res[row,3]$media)) {
                 tmpRow <- row - chop
@@ -56,6 +75,7 @@ dataCoordProcessing <- function(data, coordinate) {
             }
         }
 
+        # fills out list of data frame with non-NA stations + coordinates
         df[[i]] <- res_chop
         coord[[i]] <- data.frame(x=coordinates(res_chop)[,1],
                                  y=coordinates(res_chop)[,2],
@@ -65,6 +85,7 @@ dataCoordProcessing <- function(data, coordinate) {
     return(list(df = df, coord = coord))
 }
 
+# same computation as NewAGE cutoff
 computeCutoff <- function() {
 
     x_min <- coord$x[1]
@@ -91,9 +112,10 @@ computeCutoff <- function() {
     diagonal <- sqrt((delta_x)^2 + (delta_y)^2)
 
     return(diagonal/3)
-    
+
 }
- 
+
+# simple computation of sperimental variogram + plot
 omnidirectSperimentalVariogram <- function(date, plotPath, type) {
 
     prec.vgm = variogram(media ~ 1, df_media, cutoff=computed_cutoff, width=computed_width)
@@ -103,6 +125,7 @@ omnidirectSperimentalVariogram <- function(date, plotPath, type) {
 
 }
 
+# converts from lat long to utm 32N
 latlong2utm32n <- function(inputDataFrame) {
 
     proj4string(inputDataFrame) <- CRS("+init=epsg:4326")
@@ -257,8 +280,12 @@ variogramFitting <- function(singleVariogram, krigingType, monthNum, date, type,
 
     monthName <- indexToMonth(monthNum)
 
+    # fitting for every type of variogram
     for (index in 1:length(singleVariogram)){
 
+        # read starting values of nugget, sill and range
+        # from file because we want final values to be as closest
+        # as possible to the suggested ones
         variogramType <- as.character(singleVariogram[index])
         variogramData <- read.csv(paste(dataPath,"variogramData/",
                                         type,"_",
@@ -269,13 +296,14 @@ variogramFitting <- function(singleVariogram, krigingType, monthNum, date, type,
         sill <- variogramData[which(rownames(variogramData) == "TV_sill:"), monthNum]
         range <- variogramData[which(rownames(variogramData) == "TV_range:"), monthNum]
 
+        # computes sperimental variogram and fits it
         prec.vgm = variogram(media ~ 1, df_media,
                              cutoff=computed_cutoff,
                              width=computed_width)
         prec.fit = fit.variogram(prec.vgm,
                                  model = vgm(sill,variogramType,range,nugget),
                                  fit.kappa=T)
-        pdf(paste(plotPath,"precFit_OMNI_",
+         pdf(paste(plotPath,"precFit_OMNI_",
                   variogramType,"_",
                   date,"_",type,".pdf",sep=""))
         print(plot(prec.vgm,prec.fit,xlab="Distance",ylab="Semivariance",
@@ -283,6 +311,7 @@ variogramFitting <- function(singleVariogram, krigingType, monthNum, date, type,
                    sub=paste("sill ",prec.fit$psill[2]," - range ",prec.fit$range[2])))
         dev.off()
 
+        # computes the cross validation for the interpolated variogram
         outdata <- computeCrossValidation(krigingType, variogramType, type, prec.fit, date, plotPath, nstations, coord,
                                           data_lin, data_exp, data_sph, data_gau,
                                           data_ked_lin, data_ked_exp, data_ked_sph, data_ked_gau, data_bes, data_ked_bes)
